@@ -1,4 +1,4 @@
-package com.autocare.ui.theme
+package com.tuequipo.autocare.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

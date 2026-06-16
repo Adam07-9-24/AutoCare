@@ -30,16 +30,16 @@ class MantenimientoViewModel(
     fun cargarMantenimientos() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            repository.getAllMantenimientos().collect { lista ->
+            repository.obtenerMantenimientos().collect { lista ->
                 _uiState.update { it.copy(isLoading = false, mantenimientos = lista) }
             }
         }
     }
 
-    fun cargarMantenimientoPorId(id: Int) {
+    fun cargarDetalle(idMantenimiento: Int) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            val mantenimiento = repository.getMantenimientoById(id)
+            _uiState.update { it.copy(isLoading = true, mensajeError = null) }
+            val mantenimiento = repository.obtenerMantenimientoPorId(idMantenimiento)
             if (mantenimiento != null) {
                 _uiState.update { it.copy(isLoading = false, mantenimientoSeleccionado = mantenimiento) }
             } else {
@@ -51,8 +51,8 @@ class MantenimientoViewModel(
     fun guardarMantenimiento(mantenimiento: Mantenimiento) {
         viewModelScope.launch {
             try {
-                _uiState.update { it.copy(isLoading = true, guardadoExitoso = false) }
-                repository.insertMantenimiento(mantenimiento)
+                _uiState.update { it.copy(isLoading = true, guardadoExitoso = false, mensajeError = null) }
+                repository.insertarMantenimiento(mantenimiento)
                 _uiState.update { it.copy(isLoading = false, guardadoExitoso = true) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, mensajeError = "Error al guardar: ${e.message}") }
@@ -63,24 +63,46 @@ class MantenimientoViewModel(
     fun editarMantenimiento(mantenimiento: Mantenimiento) {
         viewModelScope.launch {
             try {
-                _uiState.update { it.copy(isLoading = true) }
-                repository.updateMantenimiento(mantenimiento)
+                _uiState.update { it.copy(isLoading = true, guardadoExitoso = false, mensajeError = null) }
+                repository.actualizarMantenimiento(mantenimiento)
                 _uiState.update { it.copy(isLoading = false, guardadoExitoso = true) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, mensajeError = "Error al actualizar: ${e.message}") }
+                _uiState.update { it.copy(isLoading = false, mensajeError = "Error al editar: ${e.message}") }
             }
         }
     }
 
-    fun eliminarMantenimiento(mantenimiento: Mantenimiento) {
+    fun eliminarMantenimiento(idMantenimiento: Int) {
         viewModelScope.launch {
             try {
-                _uiState.update { it.copy(isLoading = true) }
-                repository.deleteMantenimiento(mantenimiento)
+                _uiState.update { it.copy(isLoading = true, mensajeError = null) }
+                val mantenimiento = repository.obtenerMantenimientoPorId(idMantenimiento)
+                mantenimiento?.let {
+                    repository.eliminarMantenimiento(it)
+                }
                 _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, mensajeError = "Error al eliminar: ${e.message}") }
             }
+        }
+    }
+
+    fun cargarDatosTecnicos(marca: String, modelo: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, mensajeError = null, consejoApi = null) }
+            repository.obtenerDatosTecnicos(marca, modelo)
+                .onSuccess { infoList ->
+                    if (infoList.isNotEmpty()) {
+                        val info = infoList[0]
+                        val detalle = "Año: ${info.year}, Cilindros: ${info.cylinders}, Combustible: ${info.fuelType}, MPG Ciudad: ${info.cityMpg}"
+                        _uiState.update { it.copy(isLoading = false, consejoApi = detalle) }
+                    } else {
+                        _uiState.update { it.copy(isLoading = false, mensajeError = "No se pudo cargar información técnica del vehículo.") }
+                    }
+                }
+                .onFailure {
+                    _uiState.update { it.copy(isLoading = false, mensajeError = "No se pudo cargar información técnica del vehículo.") }
+                }
         }
     }
 }

@@ -11,26 +11,28 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-data class VehiculoUiState(
-    val isLoading: Boolean = false,
-    val vehiculos: List<Vehiculo> = emptyList(),
-    val vehiculoSeleccionado: Vehiculo? = null,
-    val mensajeError: String? = null,
-    val consejoApi: String? = null
-)
-
 class VehiculoViewModel(
     private val repository: AutoCareRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(VehiculoUiState())
-    val uiState: StateFlow<VehiculoUiState> = _uiState.asStateFlow()
+    private val _vehiculos = MutableStateFlow<List<Vehiculo>>(emptyList())
+    val vehiculos: StateFlow<List<Vehiculo>> = _vehiculos.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _consejoApi = MutableStateFlow<String?>(null)
+    val consejoApi: StateFlow<String?> = _consejoApi.asStateFlow()
+
+    private val _mensajeError = MutableStateFlow<String?>(null)
+    val mensajeError: StateFlow<String?> = _mensajeError.asStateFlow()
 
     fun cargarVehiculos() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            repository.getAllVehiculos().collect { lista ->
-                _uiState.update { it.copy(isLoading = false, vehiculos = lista) }
+            _isLoading.value = true
+            repository.obtenerVehiculos().collect { lista ->
+                _vehiculos.value = lista
+                _isLoading.value = false
             }
         }
     }
@@ -38,38 +40,53 @@ class VehiculoViewModel(
     fun agregarVehiculo(vehiculo: Vehiculo) {
         viewModelScope.launch {
             try {
-                repository.insertVehiculo(vehiculo)
+                _isLoading.value = true
+                repository.insertarVehiculo(vehiculo)
+                _isLoading.value = false
             } catch (e: Exception) {
-                _uiState.update { it.copy(mensajeError = "Error al agregar vehículo") }
+                _isLoading.value = false
+                _mensajeError.value = "Error al agregar vehículo"
             }
         }
     }
 
-    fun eliminarVehiculo(vehiculo: Vehiculo) {
+    fun eliminarVehiculo(idVehiculo: Int) {
         viewModelScope.launch {
             try {
-                repository.deleteVehiculo(vehiculo)
-            } catch (e: Exception) {
-                _uiState.update { it.copy(mensajeError = "Error al eliminar vehículo") }
-            }
-        }
-    }
-
-    fun obtenerDetallesTecnicos(vehiculo: Vehiculo) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, mensajeError = null, consejoApi = null) }
-            try {
-                val info = repository.getCarTechnicalInfo(vehiculo.marca, vehiculo.modelo)
-                if (info.isNotEmpty()) {
-                    val car = info[0]
-                    val techInfo = "Año: ${car.year}, Cilindros: ${car.cylinders}, Combustible: ${car.fuelType}, MPG Ciudad: ${car.cityMpg}, MPG Autopista: ${car.highwayMpg}"
-                    _uiState.update { it.copy(isLoading = false, consejoApi = techInfo) }
-                } else {
-                    _uiState.update { it.copy(isLoading = false, mensajeError = "No se pudo cargar información técnica del vehículo.") }
+                _isLoading.value = true
+                val vehiculo = repository.obtenerVehiculoPorId(idVehiculo)
+                vehiculo?.let {
+                    repository.eliminarVehiculo(it)
                 }
+                _isLoading.value = false
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, mensajeError = "No se pudo cargar información técnica del vehículo.") }
+                _isLoading.value = false
+                _mensajeError.value = "Error al eliminar vehículo"
             }
+        }
+    }
+
+    fun obtenerDatosTecnicos(marca: String, modelo: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _mensajeError.value = null
+            _consejoApi.value = null
+            
+            repository.obtenerDatosTecnicos(marca, modelo)
+                .onSuccess { infoList ->
+                    if (infoList.isNotEmpty()) {
+                        val info = infoList[0]
+                        val techInfo = "Marca: ${info.make}, Modelo: ${info.model}, Año: ${info.year}, Cilindros: ${info.cylinders}, Combustible: ${info.fuelType}"
+                        _consejoApi.value = techInfo
+                    } else {
+                        _mensajeError.value = "No se pudo cargar información técnica del vehículo."
+                    }
+                    _isLoading.value = false
+                }
+                .onFailure {
+                    _mensajeError.value = "No se pudo cargar información técnica del vehículo."
+                    _isLoading.value = false
+                }
         }
     }
 }

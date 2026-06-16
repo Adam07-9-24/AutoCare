@@ -29,22 +29,31 @@ class AutoCareRepository(
     )
 
     // Vehiculo CRUD
-    suspend fun insertVehiculo(vehiculo: Vehiculo) = vehiculoDao.insertVehiculo(vehiculo.toEntity())
-    fun getAllVehiculos(): Flow<List<Vehiculo>> = vehiculoDao.getAllVehiculos().map { list -> list.map { it.toDomain() } }
-    suspend fun getVehiculoById(id: Int): Vehiculo? = vehiculoDao.getVehiculoById(id)?.toDomain()
-    suspend fun deleteVehiculo(vehiculo: Vehiculo) = vehiculoDao.deleteVehiculo(vehiculo.toEntity())
+    suspend fun insertarVehiculo(vehiculo: Vehiculo) = vehiculoDao.insert(vehiculo.toEntity())
+    fun obtenerVehiculos(): Flow<List<Vehiculo>> = vehiculoDao.getAll().map { list -> list.map { it.toDomain() } }
+    suspend fun obtenerVehiculoPorId(id: Int): Vehiculo? = vehiculoDao.getById(id)?.toDomain()
+    suspend fun eliminarVehiculo(vehiculo: Vehiculo) = vehiculoDao.delete(vehiculo.toEntity())
 
     // Mantenimiento CRUD
-    suspend fun insertMantenimiento(mantenimiento: Mantenimiento) = mantenimientoDao.insertMantenimiento(mantenimiento.toEntity())
-    fun getAllMantenimientos(): Flow<List<Mantenimiento>> = mantenimientoDao.getAllMantenimientos().map { list -> list.map { it.toDomain() } }
-    suspend fun getMantenimientoById(id: Int): Mantenimiento? = mantenimientoDao.getMantenimientoById(id)?.toDomain()
-    suspend fun updateMantenimiento(mantenimiento: Mantenimiento) = mantenimientoDao.updateMantenimiento(mantenimiento.toEntity())
-    suspend fun deleteMantenimiento(mantenimiento: Mantenimiento) = mantenimientoDao.deleteMantenimiento(mantenimiento.toEntity())
-    fun getMantenimientosByVehiculo(vehiculoId: Int): Flow<List<Mantenimiento>> = 
-        mantenimientoDao.getMantenimientosByVehiculo(vehiculoId).map { list -> list.map { it.toDomain() } }
+    suspend fun insertarMantenimiento(m: Mantenimiento) = mantenimientoDao.insert(m.toEntity())
+    fun obtenerMantenimientos(): Flow<List<Mantenimiento>> = mantenimientoDao.getAll().map { list -> list.map { it.toDomain() } }
+    suspend fun obtenerMantenimientoPorId(id: Int): Mantenimiento? = mantenimientoDao.getById(id)?.toDomain()
+    suspend fun actualizarMantenimiento(m: Mantenimiento) = mantenimientoDao.update(m.toEntity())
+    suspend fun eliminarMantenimiento(m: Mantenimiento) = mantenimientoDao.delete(m.toEntity())
     
-    // Remote API
-    suspend fun getCarTechnicalInfo(marca: String, modelo: String): List<CarInfoDto> {
-        return carApiService.getCarInfo(marca, modelo)
+    fun obtenerPorVehiculo(idVehiculo: Int): Flow<List<Mantenimiento>> = 
+        mantenimientoDao.getByVehiculo(idVehiculo).map { list -> list.map { it.toDomain() } }
+    
+    fun obtenerPorEstado(estado: String): Flow<List<Mantenimiento>> = 
+        mantenimientoDao.getByEstado(estado).map { list -> list.map { it.toDomain() } }
+
+    // API
+    suspend fun obtenerDatosTecnicos(marca: String, modelo: String): Result<List<CarInfoDto>> {
+        return try {
+            val response = carApiService.getCarInfo(marca, modelo)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
