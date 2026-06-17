@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.tuequipo.autocare"
-    compileSdk = 34
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.tuequipo.autocare"
@@ -46,9 +46,9 @@ dependencies {
     implementation(libs.androidx.compose.material3)
 
     // Room con KSP
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-runtime:2.8.4")
+    implementation("androidx.room:room-ktx:2.8.4")
+    ksp("androidx.room:room-compiler:2.8.4")
 
     // Retrofit
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
