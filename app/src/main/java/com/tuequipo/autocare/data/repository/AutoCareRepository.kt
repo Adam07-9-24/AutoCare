@@ -32,6 +32,7 @@ class AutoCareRepository(
     suspend fun insertarVehiculo(vehiculo: Vehiculo) = vehiculoDao.insert(vehiculo.toEntity())
     fun obtenerVehiculos(): Flow<List<Vehiculo>> = vehiculoDao.getAll().map { list -> list.map { it.toDomain() } }
     suspend fun obtenerVehiculoPorId(id: Int): Vehiculo? = vehiculoDao.getById(id)?.toDomain()
+    suspend fun actualizarVehiculo(vehiculo: Vehiculo) = vehiculoDao.update(vehiculo.toEntity())
     suspend fun eliminarVehiculo(vehiculo: Vehiculo) = vehiculoDao.delete(vehiculo.toEntity())
 
     // Mantenimiento CRUD

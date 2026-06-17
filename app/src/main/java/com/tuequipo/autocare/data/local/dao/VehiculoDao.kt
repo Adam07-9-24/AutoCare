@@ -6,6 +6,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.tuequipo.autocare.data.local.entity.VehiculoEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -19,6 +20,9 @@ interface VehiculoDao {
 
     @Query("SELECT * FROM vehiculos WHERE idVehiculo = :id")
     suspend fun getById(id: Int): VehiculoEntity?
+
+    @Update
+    suspend fun update(vehiculo: VehiculoEntity)
 
     @Delete
     suspend fun delete(vehiculo: VehiculoEntity)

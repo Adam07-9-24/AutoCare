@@ -18,6 +18,9 @@ class VehiculoViewModel(
     private val _vehiculos = MutableStateFlow<List<Vehiculo>>(emptyList())
     val vehiculos: StateFlow<List<Vehiculo>> = _vehiculos.asStateFlow()
 
+    private val _vehiculoSeleccionado = MutableStateFlow<Vehiculo?>(null)
+    val vehiculoSeleccionado: StateFlow<Vehiculo?> = _vehiculoSeleccionado.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -37,6 +40,23 @@ class VehiculoViewModel(
         }
     }
 
+    fun cargarDetalle(idVehiculo: Int) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _mensajeError.value = null
+                _vehiculoSeleccionado.value = repository.obtenerVehiculoPorId(idVehiculo)
+                if (_vehiculoSeleccionado.value == null) {
+                    _mensajeError.value = "Vehiculo no encontrado"
+                }
+                _isLoading.value = false
+            } catch (e: Exception) {
+                _isLoading.value = false
+                _mensajeError.value = "Error al cargar vehiculo"
+            }
+        }
+    }
+
     fun agregarVehiculo(vehiculo: Vehiculo) {
         viewModelScope.launch {
             try {
@@ -46,6 +66,19 @@ class VehiculoViewModel(
             } catch (e: Exception) {
                 _isLoading.value = false
                 _mensajeError.value = "Error al agregar vehículo"
+            }
+        }
+    }
+
+    fun editarVehiculo(vehiculo: Vehiculo) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                repository.actualizarVehiculo(vehiculo)
+                _isLoading.value = false
+            } catch (e: Exception) {
+                _isLoading.value = false
+                _mensajeError.value = "Error al editar vehiculo"
             }
         }
     }
