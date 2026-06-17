@@ -8,7 +8,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
     private const val BASE_URL = "https://api.api-ninjas.com/v1/"
-    private const val API_KEY = "TU_API_KEY" // Reemplazar con la API Key real
+    // Para la demo se debe configurar una API key valida de API Ninjas.
+    private const val API_KEY = "TU_API_KEY"
 
     private val authInterceptor = Interceptor { chain ->
         val request = chain.request().newBuilder()
