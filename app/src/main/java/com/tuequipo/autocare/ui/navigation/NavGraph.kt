@@ -41,6 +41,7 @@ fun NavGraph(factory: AutoCareViewModelFactory) {
         composable(Routes.ListaMantenimientos) {
             ListaScreen(
                 mantenimientoViewModel = mantenimientoViewModel,
+                vehiculoViewModel = vehiculoViewModel,
                 onNuevo = { navController.navigate(Routes.NuevoMantenimiento) },
                 onDetalle = { id -> navController.navigate(Routes.detalleMantenimiento(id)) },
                 onVehiculos = { navController.navigate(Routes.Vehiculos) },

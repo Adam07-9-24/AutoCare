@@ -3,6 +3,7 @@ package com.tuequipo.autocare.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tuequipo.autocare.data.remote.dto.CarInfoDto
 import com.tuequipo.autocare.data.repository.AutoCareRepository
 import com.tuequipo.autocare.domain.model.Mantenimiento
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,7 @@ data class MantenimientoUiState(
     val mantenimientoSeleccionado: Mantenimiento? = null,
     val mensajeError: String? = null,
     val consejoApi: String? = null,
+    val isLoadingDatosTecnicos: Boolean = false,
     val guardadoExitoso: Boolean = false
 )
 
@@ -89,20 +91,60 @@ class MantenimientoViewModel(
 
     fun cargarDatosTecnicos(marca: String, modelo: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, mensajeError = null, consejoApi = null) }
+            _uiState.update { it.copy(isLoadingDatosTecnicos = true, consejoApi = null) }
             repository.obtenerDatosTecnicos(marca, modelo)
                 .onSuccess { infoList ->
-                    if (infoList.isNotEmpty()) {
-                        val info = infoList[0]
-                        val detalle = "Año: ${info.year}, Cilindros: ${info.cylinders}, Combustible: ${info.fuelType}, MPG Ciudad: ${info.cityMpg}"
-                        _uiState.update { it.copy(isLoading = false, consejoApi = detalle) }
-                    } else {
-                        _uiState.update { it.copy(isLoading = false, mensajeError = "No se pudo cargar información técnica del vehículo.") }
-                    }
+                    val detalle = infoList.firstOrNull()?.let { formatearDatosTecnicos(it) }
+                        ?: "No se encontr\u00f3 informaci\u00f3n t\u00e9cnica para este modelo."
+
+                    _uiState.update { it.copy(isLoadingDatosTecnicos = false, consejoApi = detalle) }
                 }
                 .onFailure {
-                    _uiState.update { it.copy(isLoading = false, mensajeError = "No se pudo cargar información técnica del vehículo.") }
+                    _uiState.update {
+                        it.copy(
+                            isLoadingDatosTecnicos = false,
+                            consejoApi = "No se pudo cargar informaci\u00f3n t\u00e9cnica del veh\u00edculo."
+                        )
+                    }
                 }
+        }
+    }
+
+    private fun formatearDatosTecnicos(info: CarInfoDto): String {
+        val campos = buildList {
+            agregarCampo("A\u00f1o", info.year)
+            agregarCampo("Clase", info.vehicleClass.formatearCapitalizado())
+            agregarCampo("Cilindros", info.cylinders)
+            agregarCampo("Desplazamiento", info.displacement?.let { "${it}L" })
+            agregarCampo("Combustible", info.fuelType.formatearCapitalizado())
+            agregarCampo("Transmisi\u00f3n", info.transmission.formatearTransmision())
+            agregarCampo("Tracci\u00f3n", info.drive?.uppercase())
+            agregarCampo("MPG ciudad", info.cityMpg)
+            agregarCampo("MPG carretera", info.highwayMpg)
+            agregarCampo("MPG combinado", info.combinationMpg)
+        }
+
+        return campos.ifEmpty {
+            listOf("No se encontr\u00f3 informaci\u00f3n t\u00e9cnica para este modelo.")
+        }.joinToString(separator = "\n")
+    }
+
+    private fun MutableList<String>.agregarCampo(etiqueta: String, valor: Any?) {
+        val texto = valor?.toString()?.takeIf { it.isNotBlank() } ?: return
+        add("$etiqueta: $texto")
+    }
+
+    private fun String?.formatearCapitalizado(): String? {
+        val texto = this?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return texto.lowercase().replaceFirstChar { it.uppercase() }
+    }
+
+    private fun String?.formatearTransmision(): String? {
+        val texto = this?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return when (texto.lowercase()) {
+            "a" -> "Autom\u00e1tica"
+            "m" -> "Manual"
+            else -> texto.formatearCapitalizado()
         }
     }
 }

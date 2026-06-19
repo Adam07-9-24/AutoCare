@@ -4,11 +4,16 @@ package com.tuequipo.autocare.data.remote.dto
 import com.google.gson.annotations.SerializedName
 
 data class CarInfoDto(
-    @SerializedName("make") val make: String,
-    @SerializedName("model") val model: String,
-    @SerializedName("year") val year: Int,
-    @SerializedName("cylinders") val cylinders: Int,
-    @SerializedName("fuel_type") val fuelType: String,
-    @SerializedName("city_mpg") val cityMpg: Int,
-    @SerializedName("highway_mpg") val highwayMpg: Int
+    val year: Int? = null,
+    val cylinders: Int? = null,
+    val displacement: Double? = null,
+    val drive: String? = null,
+    val transmission: String? = null,
+    @SerializedName("fuel_type")       val fuelType: String? = null,
+    @SerializedName("city_mpg")        val cityMpg: Int? = null,
+    @SerializedName("highway_mpg")     val highwayMpg: Int? = null,
+    @SerializedName("combination_mpg") val combinationMpg: Int? = null,
+    @SerializedName("class")           val vehicleClass: String? = null,
+    val make: String? = null,
+    val model: String? = null
 )
