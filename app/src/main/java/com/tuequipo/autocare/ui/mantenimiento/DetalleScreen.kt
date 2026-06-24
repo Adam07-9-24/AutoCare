@@ -1,288 +1,332 @@
 package com.tuequipo.autocare.ui.mantenimiento
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.tuequipo.autocare.ui.common.HeaderGradient
+import com.tuequipo.autocare.ui.common.StatusChip
+import com.tuequipo.autocare.ui.common.estadoColor
+import com.tuequipo.autocare.ui.common.formatFecha
 import com.tuequipo.autocare.viewmodel.MantenimientoViewModel
-import com.tuequipo.autocare.viewmodel.VehiculoViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetalleScreen(
     idMantenimiento: Int,
-    mantenimientoViewModel: MantenimientoViewModel,
-    vehiculoViewModel: VehiculoViewModel,
-    onEditar: () -> Unit,
-    onVolver: () -> Unit
+    viewModel: MantenimientoViewModel,
+    onNavigateBack: () -> Unit,
+    onNavigateToEdit: () -> Unit
 ) {
-    val mantenimientoState by mantenimientoViewModel.uiState.collectAsState()
-    val vehiculos by vehiculoViewModel.vehiculos.collectAsState()
-    val mantenimiento = mantenimientoState.mantenimientoSeleccionado
-    val vehiculo = vehiculos.find { it.idVehiculo == mantenimiento?.idVehiculo }
-    var mostrarConfirmacion by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(idMantenimiento) {
-        mantenimientoViewModel.cargarDetalle(idMantenimiento)
-        vehiculoViewModel.cargarVehiculos()
-    }
-
-    LaunchedEffect(vehiculo?.idVehiculo) {
-        if (vehiculo != null) {
-            mantenimientoViewModel.cargarDatosTecnicos(vehiculo.marca, vehiculo.modelo)
-        }
+        viewModel.cargarDetalle(idMantenimiento)
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Detalle") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onVolver,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+            Box(modifier = Modifier.background(HeaderGradient)) {
+                TopAppBar(
+                    title = { Text("Detalle", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = onNavigateToEdit) {
+                            Icon(Icons.Default.Edit, "Editar")
+                        }
+                        IconButton(onClick = {
+                            viewModel.eliminarMantenimiento(idMantenimiento)
+                            onNavigateBack()
+                        }) {
+                            Icon(Icons.Default.Delete, "Eliminar", tint = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+            }
+        }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (mantenimientoState.isLoading) {
-                Text("Cargando...")
+        when {
+            uiState.isLoading -> Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) { CircularProgressIndicator() }
+
+            uiState.mensajeError != null -> Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = uiState.mensajeError!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyLarge
+                )
             }
 
-            mantenimientoState.mensajeError?.let {
-                Text(text = it, color = MaterialTheme.colorScheme.error)
-            }
+            else -> uiState.mantenimientoSeleccionado?.let { m ->
+                val statusColor = estadoColor(m.estado)
 
-            if (mantenimiento != null) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                Column(
+                    modifier = Modifier
+                        .padding(padding)
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    // Header card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.85f)),
+                        elevation = CardDefaults.cardElevation(3.dp)
                     ) {
-                        Row(
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Text(
+                                    text = m.titulo,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                )
+                                StatusChip(m.estado)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = m.tipoMantenimiento,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = statusColor
+                            )
+                        }
+                    }
+
+                    // Vehículo asociado
+                    uiState.vehiculoAsociado?.let { v ->
+                        Card(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.85f)),
+                            elevation = CardDefaults.cardElevation(2.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(20.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    "Vehículo asociado",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                                InfoRow(Icons.Default.DirectionsCar, "Vehículo", "${v.marca} ${v.modelo}")
+                                InfoRow(Icons.Default.Badge, "Placa", v.placa)
+                                InfoRow(Icons.Default.Category, "Tipo", v.tipoVehiculo)
+                            }
+                        }
+                    }
+
+                    // Info card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.85f)),
+                        elevation = CardDefaults.cardElevation(2.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Text(
-                                text = mantenimiento.titulo,
-                                style = MaterialTheme.typography.titleLarge,
-                                modifier = Modifier.weight(1f)
+                                "Información",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
                             )
-                            EstadoChip(estado = mantenimiento.estado)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                            InfoRow(Icons.Default.CalendarMonth, "Fecha programada", formatFecha(m.fechaProgramada))
+                            InfoRow(Icons.Default.Category, "Tipo", m.tipoMantenimiento)
+                            InfoRow(
+                                Icons.Default.Notifications,
+                                "Recordatorio",
+                                if (m.recordatorioActivo) "Activo" else "Inactivo"
+                            )
+                            if (m.descripcion.isNotBlank()) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Description,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                        Text(
+                                            "Descripción",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                        )
+                                    }
+                                    Text(
+                                        text = m.descripcion,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.padding(start = 48.dp)
+                                    )
+                                }
+                            }
                         }
-                        DetailLine("Descripcion", mantenimiento.descripcion.ifBlank { "Sin descripcion" })
-                        DetailLine("Fecha programada", mantenimiento.fechaProgramada)
-                        DetailLine("Tipo", mantenimiento.tipoMantenimiento)
-                        DetailLine("Recordatorio", if (mantenimiento.recordatorioActivo) "Activo" else "Inactivo")
-                        DetailLine("Vehiculo", vehiculo?.let { "${it.marca} ${it.modelo} - ${it.placa}" } ?: "No disponible")
                     }
-                }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    // Technical API card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        elevation = CardDefaults.cardElevation(1.dp)
                     ) {
-                        Text(
-                            text = "Datos técnicos del vehículo",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        val textoTecnico = when {
-                            mantenimientoState.isLoadingDatosTecnicos -> "Cargando información técnica..."
-                            mantenimientoState.consejoApi != null -> mantenimientoState.consejoApi.orEmpty()
-                            else -> "No se encontró información técnica para este modelo."
+                        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Speed,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    "Datos técnicos del vehículo",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                            when {
+                                uiState.datosTecnicos != null -> {
+                                    val datos = uiState.datosTecnicos
+                                    TechnicalDataRow("Año", datos?.year?.toString())
+                                    TechnicalDataRow("Clase", datos?.vehicleClass)
+                                    TechnicalDataRow("Cilindros", datos?.cylinders?.toString())
+                                    TechnicalDataRow("Desplazamiento", datos?.displacement?.let { "$it L" })
+                                    TechnicalDataRow("Combustible", datos?.fuelType)
+                                    TechnicalDataRow("Transmisión", formatTransmission(datos?.transmission))
+                                    TechnicalDataRow("Tracción", datos?.drive)
+                                }
+                                uiState.errorDatosTecnicos != null -> Text(
+                                    text = uiState.errorDatosTecnicos!!,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                                else -> Text(
+                                    text = "Cargando información técnica...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
                         }
-                        TechnicalInfo(text = textoTecnico)
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(onClick = onEditar, modifier = Modifier.weight(1f)) {
-                        Text("Editar")
-                    }
-                    Button(
-                        onClick = { mostrarConfirmacion = true },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("Eliminar")
-                    }
-                }
-            } else if (!mantenimientoState.isLoading) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text("No se encontro el mantenimiento.")
                     }
                 }
             }
         }
     }
+}
 
-    if (mostrarConfirmacion) {
-        AlertDialog(
-            onDismissRequest = { mostrarConfirmacion = false },
-            title = { Text("Eliminar mantenimiento") },
-            text = { Text("Esta accion eliminara el mantenimiento seleccionado.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarConfirmacion = false
-                        mantenimientoViewModel.eliminarMantenimiento(idMantenimiento)
-                        onVolver()
-                    }
-                ) {
-                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { mostrarConfirmacion = false }) {
-                    Text("Cancelar")
-                }
-            }
-        )
+@Composable
+private fun InfoRow(icon: ImageVector, label: String, value: String) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+        }
+        Column {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+            Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        }
     }
 }
 
 @Composable
-private fun DetailLine(label: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+private fun TechnicalDataRow(label: String, value: String?) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(text = value, style = MaterialTheme.typography.bodyMedium)
-    }
-}
-
-@Composable
-private fun TechnicalInfo(text: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        text.lines()
-            .filter { it.isNotBlank() }
-            .forEach { line ->
-                val parts = line.split(":", limit = 2)
-                if (parts.size == 2) {
-                    TechnicalLine(label = parts[0].trim(), value = parts[1].trim())
-                } else {
-                    Text(
-                        text = line,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-    }
-}
-
-@Composable
-private fun TechnicalLine(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(1f)
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f)
         )
         Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
+            text = value?.takeIf { it.isNotBlank() } ?: "No disponible",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.padding(start = 16.dp)
         )
     }
 }
 
-@Composable
-private fun EstadoChip(estado: String) {
-    val container = when (estado.lowercase()) {
-        "realizado" -> Color(0xFFDFF3E6)
-        "vencido" -> Color(0xFFFFE0E0)
-        else -> Color(0xFFE3ECF8)
-    }
-    val content = when (estado.lowercase()) {
-        "realizado" -> Color(0xFF1B6B3A)
-        "vencido" -> Color(0xFF9B1C1C)
-        else -> Color(0xFF214C7A)
-    }
-    Surface(
-        shape = RoundedCornerShape(50),
-        color = container,
-        contentColor = content
-    ) {
-        Text(
-            text = estado,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelMedium
-        )
+private fun formatTransmission(value: String?): String {
+    val normalized = value?.trim().orEmpty()
+    return when (normalized.lowercase()) {
+        "a", "auto", "automatic" -> "Automática"
+        "m", "manual" -> "Manual"
+        "" -> "No disponible"
+        else -> normalized.replaceFirstChar { character ->
+            if (character.isLowerCase()) character.titlecase() else character.toString()
+        }
     }
 }

@@ -1,4 +1,3 @@
-// data/local/entity/MantenimientoEntity.kt
 package com.tuequipo.autocare.data.local.entity
 
 import androidx.room.Entity

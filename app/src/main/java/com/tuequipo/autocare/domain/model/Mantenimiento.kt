@@ -1,4 +1,4 @@
-// domain/model/Mantenimiento.kt
+
 package com.tuequipo.autocare.domain.model
 
 data class Mantenimiento(

@@ -1,4 +1,3 @@
-// data/remote/api/CarApiService.kt
 package com.tuequipo.autocare.data.remote.api
 
 import com.tuequipo.autocare.data.remote.dto.CarInfoDto
