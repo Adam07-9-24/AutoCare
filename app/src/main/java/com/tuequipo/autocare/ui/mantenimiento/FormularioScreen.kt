@@ -1,52 +1,32 @@
 package com.tuequipo.autocare.ui.mantenimiento
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tuequipo.autocare.domain.model.Mantenimiento
-import com.tuequipo.autocare.domain.model.Vehiculo
+import com.tuequipo.autocare.ui.common.estadoColor
+import com.tuequipo.autocare.ui.common.estadoContainerColor
+import com.tuequipo.autocare.ui.common.formatFecha
+import com.tuequipo.autocare.ui.common.pressScale
+import com.tuequipo.autocare.ui.common.HeaderGradient
+import com.tuequipo.autocare.ui.common.FabGradient
 import com.tuequipo.autocare.viewmodel.MantenimientoViewModel
 import com.tuequipo.autocare.viewmodel.VehiculoViewModel
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneOffset
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,404 +35,355 @@ fun FormularioScreen(
     idMantenimiento: Int?,
     mantenimientoViewModel: MantenimientoViewModel,
     vehiculoViewModel: VehiculoViewModel,
-    onGuardar: () -> Unit,
-    onVolver: () -> Unit
+    onNavigateBack: () -> Unit
 ) {
-    val mantenimientoState by mantenimientoViewModel.uiState.collectAsState()
+    val uiState by mantenimientoViewModel.uiState.collectAsState()
     val vehiculos by vehiculoViewModel.vehiculos.collectAsState()
-    val mantenimientoActual = mantenimientoState.mantenimientoSeleccionado
-    val editando = idMantenimiento != null
 
-    var vehiculoSeleccionado by remember { mutableStateOf<Vehiculo?>(null) }
     var titulo by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
-    var tipo by remember { mutableStateOf("Preventivo") }
-    var fecha by remember { mutableStateOf("") }
+    var tipoMantenimiento by remember { mutableStateOf("") }
+    var fechaProgramada by remember { mutableStateOf("") }
     var estado by remember { mutableStateOf("Pendiente") }
-    var recordatorio by remember { mutableStateOf(false) }
-    var mostrarVehiculos by remember { mutableStateOf(false) }
-    var mostrarTipos by remember { mutableStateOf(false) }
-    var mostrarEstados by remember { mutableStateOf(false) }
-    var mostrarFecha by remember { mutableStateOf(false) }
-    val tipos = listOf("Preventivo", "Correctivo", "Revision", "Cambio")
+    var recordatorioActivo by remember { mutableStateOf(true) }
+    var idVehiculoSeleccionado by remember { mutableStateOf<Int?>(null) }
+
+    var expandedVehiculo by remember { mutableStateOf(false) }
+    var expandedTipo by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    val datePickerState = rememberDatePickerState()
+    val tipos = listOf("Preventivo", "Correctivo", "Mejora")
     val estados = listOf("Pendiente", "Realizado", "Vencido")
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = MaterialTheme.colorScheme.secondary,
+        focusedLabelColor = MaterialTheme.colorScheme.secondary,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        cursorColor = MaterialTheme.colorScheme.secondary
+    )
 
     LaunchedEffect(idMantenimiento) {
-        vehiculoViewModel.cargarVehiculos()
+        if (idMantenimiento != null) mantenimientoViewModel.cargarDetalle(idMantenimiento)
+    }
+
+    LaunchedEffect(uiState.mantenimientoSeleccionado) {
         if (idMantenimiento != null) {
-            mantenimientoViewModel.cargarDetalle(idMantenimiento)
-        }
-    }
-
-    LaunchedEffect(mantenimientoActual, vehiculos) {
-        if (editando && mantenimientoActual != null) {
-            vehiculoSeleccionado = vehiculos.find { it.idVehiculo == mantenimientoActual.idVehiculo }
-            titulo = mantenimientoActual.titulo
-            descripcion = mantenimientoActual.descripcion
-            tipo = mantenimientoActual.tipoMantenimiento
-            fecha = mantenimientoActual.fechaProgramada
-            estado = mantenimientoActual.estado
-            recordatorio = mantenimientoActual.recordatorioActivo
-        }
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (editando) "Editar mantenimiento" else "Nuevo mantenimiento") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onVolver,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "Datos del mantenimiento",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    SelectorField(
-                        label = "Vehículo",
-                        value = vehiculoSeleccionado?.let { "${it.marca} ${it.modelo} - ${it.placa}" } ?: "Seleccionar vehículo",
-                        onClick = { mostrarVehiculos = true }
-                    )
-
-                    OutlinedTextField(
-                        value = titulo,
-                        onValueChange = { titulo = it },
-                        label = { Text("Titulo") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = descripcion,
-                        onValueChange = { descripcion = it },
-                        label = { Text("Descripcion") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 3
-                    )
-
-                    SelectorField(
-                        label = "Tipo de mantenimiento",
-                        value = tipo,
-                        onClick = { mostrarTipos = true }
-                    )
-
-                    SelectorField(
-                        label = "Fecha programada",
-                        value = fecha.ifBlank { "Seleccionar fecha" },
-                        onClick = { mostrarFecha = true }
-                    )
-
-                    SelectorField(
-                        label = "Estado",
-                        value = estado,
-                        onClick = { mostrarEstados = true }
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("Recordatorio", style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                text = if (recordatorio) "Activo" else "Inactivo",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(checked = recordatorio, onCheckedChange = { recordatorio = it })
-                    }
-                }
-            }
-
-            mantenimientoState.mensajeError?.let {
-                Text(text = it, color = MaterialTheme.colorScheme.error)
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Button(
-                enabled = vehiculoSeleccionado != null && titulo.isNotBlank() && fecha.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    val mantenimiento = Mantenimiento(
-                        idMantenimiento = idMantenimiento ?: 0,
-                        idVehiculo = vehiculoSeleccionado?.idVehiculo ?: 0,
-                        titulo = titulo,
-                        descripcion = descripcion,
-                        tipoMantenimiento = tipo,
-                        fechaProgramada = fecha,
-                        estado = estado,
-                        recordatorioActivo = recordatorio
-                    )
-                    if (editando) {
-                        mantenimientoViewModel.editarMantenimiento(mantenimiento)
-                    } else {
-                        mantenimientoViewModel.guardarMantenimiento(mantenimiento)
-                    }
-                    onGuardar()
-                }
-            ) {
-                Text("Guardar")
+            uiState.mantenimientoSeleccionado?.let { m ->
+                titulo = m.titulo
+                descripcion = m.descripcion
+                tipoMantenimiento = m.tipoMantenimiento
+                fechaProgramada = m.fechaProgramada
+                estado = m.estado
+                recordatorioActivo = m.recordatorioActivo
+                idVehiculoSeleccionado = m.idVehiculo
             }
         }
     }
 
-    if (mostrarFecha) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = fecha.toDatePickerMillis()
-        )
+    LaunchedEffect(uiState.guardadoExitoso) {
+        if (uiState.guardadoExitoso) {
+            mantenimientoViewModel.resetGuardado()
+            onNavigateBack()
+        }
+    }
 
+    if (showDatePicker) {
         DatePickerDialog(
-            onDismissRequest = { mostrarFecha = false },
+            onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let {
-                            fecha = it.toDateText()
-                        }
-                        mostrarFecha = false
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        fechaProgramada = Instant.ofEpochMilli(millis)
+                            .atZone(ZoneOffset.UTC)
+                            .toLocalDate()
+                            .toString()
                     }
-                ) {
-                    Text("Aceptar")
-                }
+                    showDatePicker = false
+                }) { Text("Aceptar") }
             },
             dismissButton = {
-                TextButton(onClick = { mostrarFecha = false }) {
-                    Text("Cancelar")
-                }
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
             }
         ) {
             DatePicker(state = datePickerState)
         }
     }
 
-    if (mostrarVehiculos) {
-        ModalBottomSheet(onDismissRequest = { mostrarVehiculos = false }) {
-            BottomSheetTitle("Seleccionar vehículo")
-            if (vehiculos.isEmpty()) {
-                Text(
-                    text = "No hay vehículos registrados",
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+    Scaffold(
+        topBar = {
+            Box(modifier = Modifier.background(HeaderGradient)) {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(
+                                if (idMantenimiento == null) "Nuevo mantenimiento" else "Editar mantenimiento",
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                "Organiza el cuidado de tu vehículo",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f)
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0f),
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 )
-            } else {
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            }
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Sección: Vehículo
+            FormSection(title = "Vehículo") {
+                ExposedDropdownMenuBox(
+                    expanded = expandedVehiculo,
+                    onExpandedChange = { expandedVehiculo = it }
                 ) {
-                    vehiculos.forEach { vehiculo ->
-                        VehiculoOptionCard(
-                            vehiculo = vehiculo,
-                            seleccionado = vehiculoSeleccionado?.idVehiculo == vehiculo.idVehiculo,
-                            onClick = {
-                                vehiculoSeleccionado = vehiculo
-                                mostrarVehiculos = false
+                    OutlinedTextField(
+                        value = vehiculos.find { it.idVehiculo == idVehiculoSeleccionado }
+                            ?.let { "${it.marca} ${it.modelo}" } ?: "",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Seleccionar vehículo") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedVehiculo) },
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth(),
+                        colors = fieldColors
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedVehiculo,
+                        onDismissRequest = { expandedVehiculo = false }
+                    ) {
+                        if (vehiculos.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("No hay vehículos registrados") },
+                                onClick = { expandedVehiculo = false },
+                                enabled = false
+                            )
+                        } else {
+                            vehiculos.forEach { v ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text("${v.marca} ${v.modelo}", fontWeight = FontWeight.Medium)
+                                            Text(v.placa, style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                        }
+                                    },
+                                    onClick = {
+                                        idVehiculoSeleccionado = v.idVehiculo
+                                        expandedVehiculo = false
+                                    }
+                                )
                             }
+                        }
+                    }
+                }
+            }
+
+            // Sección: Detalles
+            FormSection(title = "Detalles del mantenimiento") {
+                OutlinedTextField(
+                    value = titulo,
+                    onValueChange = { titulo = it },
+                    label = { Text("Título") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = fieldColors
+                )
+                OutlinedTextField(
+                    value = descripcion,
+                    onValueChange = { descripcion = it },
+                    label = { Text("Descripción (opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4,
+                    colors = fieldColors
+                )
+                ExposedDropdownMenuBox(
+                    expanded = expandedTipo,
+                    onExpandedChange = { expandedTipo = it }
+                ) {
+                    OutlinedTextField(
+                        value = tipoMantenimiento,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Tipo de mantenimiento") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedTipo) },
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth(),
+                        colors = fieldColors
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedTipo,
+                        onDismissRequest = { expandedTipo = false }
+                    ) {
+                        tipos.forEach { t ->
+                            DropdownMenuItem(
+                                text = { Text(t) },
+                                onClick = { tipoMantenimiento = t; expandedTipo = false }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Sección: Programación
+            FormSection(title = "Programación") {
+                OutlinedButton(
+                    onClick = { showDatePicker = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .padding(end = 0.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (fechaProgramada.isEmpty()) "Seleccionar fecha"
+                        else formatFecha(fechaProgramada),
+                        fontWeight = if (fechaProgramada.isEmpty()) FontWeight.Normal else FontWeight.SemiBold
+                    )
+                }
+
+                Text(
+                    text = "Estado",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    estados.forEach { e ->
+                        FilterChip(
+                            selected = estado == e,
+                            onClick = { estado = e },
+                            label = { Text(e, style = MaterialTheme.typography.labelMedium) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = estadoContainerColor(e),
+                                selectedLabelColor = estadoColor(e)
+                            )
+                        )
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Switch(
+                        checked = recordatorioActivo,
+                        onCheckedChange = { recordatorioActivo = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.secondary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("Recordatorio activo", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        Text(
+                            "Recibirás alertas de este mantenimiento",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
 
-    if (mostrarTipos) {
-        OpcionesBottomSheet(
-            titulo = "Seleccionar tipo",
-            opciones = tipos,
-            seleccionado = tipo,
-            onSeleccionar = {
-                tipo = it
-                mostrarTipos = false
-            },
-            onCerrar = { mostrarTipos = false }
-        )
-    }
-
-    if (mostrarEstados) {
-        OpcionesBottomSheet(
-            titulo = "Seleccionar estado",
-            opciones = estados,
-            seleccionado = estado,
-            onSeleccionar = {
-                estado = it
-                mostrarEstados = false
-            },
-            onCerrar = { mostrarEstados = false }
-        )
-    }
-}
-
-@Composable
-private fun SelectorField(
-    label: String,
-    value: String,
-    onClick: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = MaterialTheme.typography.titleSmall)
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-        ) {
-            Text(
-                text = value,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-    }
-}
-
-@Composable
-private fun VehiculoOptionCard(
-    vehiculo: Vehiculo,
-    seleccionado: Boolean,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (seleccionado) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-            }
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                text = "${vehiculo.marca} ${vehiculo.modelo}",
-                style = MaterialTheme.typography.titleSmall,
-                color = if (seleccionado) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = "Placa: ${vehiculo.placa}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-@OptIn(ExperimentalMaterial3Api::class)
-private fun OpcionesBottomSheet(
-    titulo: String,
-    opciones: List<String>,
-    seleccionado: String,
-    onSeleccionar: (String) -> Unit,
-    onCerrar: () -> Unit
-) {
-    ModalBottomSheet(onDismissRequest = onCerrar) {
-        BottomSheetTitle(titulo)
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            opciones.forEach { opcion ->
-                OpcionCard(
-                    text = opcion,
-                    selected = seleccionado == opcion,
-                    onClick = { onSeleccionar(opcion) }
+            val guardarInteraction = remember { MutableInteractionSource() }
+            val haptics = LocalHapticFeedback.current
+            Button(
+                onClick = {
+                    if (idVehiculoSeleccionado != null) {
+                        val m = Mantenimiento(
+                            idMantenimiento = idMantenimiento ?: 0,
+                            idVehiculo = idVehiculoSeleccionado!!,
+                            titulo = titulo.trim(),
+                            descripcion = descripcion.trim(),
+                            tipoMantenimiento = tipoMantenimiento,
+                            fechaProgramada = fechaProgramada,
+                            estado = estado,
+                            recordatorioActivo = recordatorioActivo
+                        )
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (idMantenimiento == null) mantenimientoViewModel.guardarMantenimiento(m)
+                        else mantenimientoViewModel.editarMantenimiento(m)
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .background(FabGradient, RoundedCornerShape(16.dp))
+                    .pressScale(guardarInteraction),
+                enabled = titulo.isNotBlank()
+                        && idVehiculoSeleccionado != null
+                        && fechaProgramada.isNotEmpty()
+                        && tipoMantenimiento.isNotBlank(),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = androidx.compose.ui.graphics.Color.Transparent
+                ),
+                interactionSource = guardarInteraction
+            ) {
+                Text(
+                    text = if (idMantenimiento == null) "Guardar mantenimiento" else "Actualizar mantenimiento",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
                 )
             }
+
+            Spacer(Modifier.height(16.dp))
         }
-        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
 @Composable
-private fun OpcionCard(
-    text: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
+private fun FormSection(title: String, content: @Composable () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-            }
-        )
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.85f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-        )
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+            content()
+        }
     }
-}
-
-@Composable
-private fun BottomSheetTitle(text: String) {
-    Text(
-        text = text,
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.primary
-    )
-}
-
-private fun String.toDatePickerMillis(): Long? {
-    return runCatching {
-        LocalDate.parse(this)
-            .atStartOfDay()
-            .toInstant(ZoneOffset.UTC)
-            .toEpochMilli()
-    }.getOrNull()
-}
-
-private fun Long.toDateText(): String {
-    return Instant.ofEpochMilli(this)
-        .atZone(ZoneOffset.UTC)
-        .toLocalDate()
-        .toString()
 }

@@ -1,7 +1,14 @@
 package com.tuequipo.autocare.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -16,88 +23,110 @@ import com.tuequipo.autocare.viewmodel.AutoCareViewModelFactory
 import com.tuequipo.autocare.viewmodel.MantenimientoViewModel
 import com.tuequipo.autocare.viewmodel.VehiculoViewModel
 
-object Routes {
-    const val ListaMantenimientos = "listaMantenimientos"
-    const val DetalleMantenimiento = "detalleMantenimiento/{idMantenimiento}"
-    const val NuevoMantenimiento = "nuevoMantenimiento"
-    const val EditarMantenimiento = "editarMantenimiento/{idMantenimiento}"
-    const val Vehiculos = "vehiculos"
-    const val Resumen = "resumen"
+private const val ANIM_DURATION = 280
 
-    fun detalleMantenimiento(idMantenimiento: Int) = "detalleMantenimiento/$idMantenimiento"
-    fun editarMantenimiento(idMantenimiento: Int) = "editarMantenimiento/$idMantenimiento"
+private val enterTransition: AnimatedContentTransitionScope<*>.() -> EnterTransition = {
+    slideIntoContainer(
+        AnimatedContentTransitionScope.SlideDirection.Start,
+        animationSpec = tween(ANIM_DURATION)
+    ) + fadeIn(animationSpec = tween(ANIM_DURATION))
+}
+
+private val exitTransition: AnimatedContentTransitionScope<*>.() -> ExitTransition = {
+    slideOutOfContainer(
+        AnimatedContentTransitionScope.SlideDirection.Start,
+        animationSpec = tween(ANIM_DURATION)
+    ) + fadeOut(animationSpec = tween(ANIM_DURATION))
+}
+
+private val popEnterTransition: AnimatedContentTransitionScope<*>.() -> EnterTransition = {
+    slideIntoContainer(
+        AnimatedContentTransitionScope.SlideDirection.End,
+        animationSpec = tween(ANIM_DURATION)
+    ) + fadeIn(animationSpec = tween(ANIM_DURATION))
+}
+
+private val popExitTransition: AnimatedContentTransitionScope<*>.() -> ExitTransition = {
+    slideOutOfContainer(
+        AnimatedContentTransitionScope.SlideDirection.End,
+        animationSpec = tween(ANIM_DURATION)
+    ) + fadeOut(animationSpec = tween(ANIM_DURATION))
+}
+
+sealed class Screen(val route: String) {
+    object Lista : Screen("lista")
+    object Detalle : Screen("detalle/{idMantenimiento}") {
+        fun createRoute(id: Int) = "detalle/$id"
+    }
+    object Formulario : Screen("formulario?idMantenimiento={idMantenimiento}") {
+        fun createRoute(id: Int? = null) = if (id != null) "formulario?idMantenimiento=$id" else "formulario"
+    }
+    object Vehiculos : Screen("vehiculos")
+    object Resumen : Screen("resumen")
 }
 
 @Composable
-fun NavGraph(factory: AutoCareViewModelFactory) {
-    val navController = rememberNavController()
+fun NavGraph(
+    factory: AutoCareViewModelFactory
+) {
+    val navController: NavHostController = rememberNavController()
     val mantenimientoViewModel: MantenimientoViewModel = viewModel(factory = factory)
     val vehiculoViewModel: VehiculoViewModel = viewModel(factory = factory)
-
     NavHost(
         navController = navController,
-        startDestination = Routes.ListaMantenimientos
+        startDestination = Screen.Lista.route,
+        enterTransition = enterTransition,
+        exitTransition = exitTransition,
+        popEnterTransition = popEnterTransition,
+        popExitTransition = popExitTransition
     ) {
-        composable(Routes.ListaMantenimientos) {
+        composable(Screen.Lista.route) {
             ListaScreen(
-                mantenimientoViewModel = mantenimientoViewModel,
+                viewModel = mantenimientoViewModel,
                 vehiculoViewModel = vehiculoViewModel,
-                onNuevo = { navController.navigate(Routes.NuevoMantenimiento) },
-                onDetalle = { id -> navController.navigate(Routes.detalleMantenimiento(id)) },
-                onVehiculos = { navController.navigate(Routes.Vehiculos) },
-                onResumen = { navController.navigate(Routes.Resumen) }
+                onNavigateToDetalle = { id -> navController.navigate(Screen.Detalle.createRoute(id)) },
+                onNavigateToFormulario = { id -> navController.navigate(Screen.Formulario.createRoute(id)) },
+                onNavigateToVehiculos = { navController.navigate(Screen.Vehiculos.route) },
+                onNavigateToResumen = { navController.navigate(Screen.Resumen.route) }
             )
         }
-
         composable(
-            route = Routes.DetalleMantenimiento,
+            route = Screen.Detalle.route,
             arguments = listOf(navArgument("idMantenimiento") { type = NavType.IntType })
         ) { backStackEntry ->
-            val idMantenimiento = backStackEntry.arguments?.getInt("idMantenimiento") ?: 0
+            val id = backStackEntry.arguments?.getInt("idMantenimiento") ?: 0
             DetalleScreen(
-                idMantenimiento = idMantenimiento,
-                mantenimientoViewModel = mantenimientoViewModel,
-                vehiculoViewModel = vehiculoViewModel,
-                onEditar = { navController.navigate(Routes.editarMantenimiento(idMantenimiento)) },
-                onVolver = { navController.popBackStack() }
+                idMantenimiento = id,
+                viewModel = mantenimientoViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEdit = { navController.navigate(Screen.Formulario.createRoute(id)) }
             )
         }
-
-        composable(Routes.NuevoMantenimiento) {
-            FormularioScreen(
-                idMantenimiento = null,
-                mantenimientoViewModel = mantenimientoViewModel,
-                vehiculoViewModel = vehiculoViewModel,
-                onGuardar = { navController.popBackStack() },
-                onVolver = { navController.popBackStack() }
-            )
-        }
-
         composable(
-            route = Routes.EditarMantenimiento,
-            arguments = listOf(navArgument("idMantenimiento") { type = NavType.IntType })
+            route = Screen.Formulario.route,
+            arguments = listOf(navArgument("idMantenimiento") {
+                type = NavType.IntType
+                defaultValue = -1
+            })
         ) { backStackEntry ->
-            val idMantenimiento = backStackEntry.arguments?.getInt("idMantenimiento") ?: 0
+            val id = backStackEntry.arguments?.getInt("idMantenimiento") ?: -1
             FormularioScreen(
-                idMantenimiento = idMantenimiento,
+                idMantenimiento = if (id == -1) null else id,
                 mantenimientoViewModel = mantenimientoViewModel,
                 vehiculoViewModel = vehiculoViewModel,
-                onGuardar = { navController.popBackStack() },
-                onVolver = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() }
             )
         }
-
-        composable(Routes.Vehiculos) {
+        composable(Screen.Vehiculos.route) {
             VehiculosScreen(
-                vehiculoViewModel = vehiculoViewModel,
-                onVolver = { navController.popBackStack() }
+                viewModel = vehiculoViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
-
-        composable(Routes.Resumen) {
+        composable(Screen.Resumen.route) {
             ResumenScreen(
-                mantenimientoViewModel = mantenimientoViewModel,
-                onVolver = { navController.popBackStack() }
+                viewModel = mantenimientoViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

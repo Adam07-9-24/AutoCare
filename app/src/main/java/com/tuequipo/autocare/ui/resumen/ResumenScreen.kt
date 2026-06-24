@@ -1,129 +1,280 @@
 package com.tuequipo.autocare.ui.resumen
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import com.tuequipo.autocare.domain.model.Mantenimiento
-import com.tuequipo.autocare.viewmodel.MantenimientoViewModel
 import java.time.LocalDate
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.tuequipo.autocare.ui.common.HeaderGradient
+import com.tuequipo.autocare.ui.theme.StatusPendiente
+import com.tuequipo.autocare.ui.theme.StatusRealizado
+import com.tuequipo.autocare.ui.theme.StatusVencido
+import com.tuequipo.autocare.viewmodel.MantenimientoViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResumenScreen(
-    mantenimientoViewModel: MantenimientoViewModel,
-    onVolver: () -> Unit
+    viewModel: MantenimientoViewModel,
+    onNavigateBack: () -> Unit
 ) {
-    val uiState by mantenimientoViewModel.uiState.collectAsState()
-    val mantenimientos = uiState.mantenimientos
+    val uiState by viewModel.uiState.collectAsState()
+    val lista = uiState.mantenimientos
 
-    LaunchedEffect(Unit) {
-        mantenimientoViewModel.cargarMantenimientos()
+    val hoy = LocalDate.now()
+    val total = lista.size
+    val pendientes = lista.count { it.estado == "Pendiente" }
+    val realizados = lista.count { it.estado == "Realizado" }
+    val vencidos = lista.count { it.estado == "Vencido" }
+    val proximos = lista.count { m ->
+        m.estado == "Pendiente" && runCatching {
+            val fecha = LocalDate.parse(m.fechaProgramada)
+            !fecha.isBefore(hoy) && !fecha.isAfter(hoy.plusDays(30))
+        }.getOrDefault(false)
     }
+    val progreso = if (total > 0) realizados.toFloat() / total else 0f
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Resumen") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onVolver,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            modifier = Modifier.size(24.dp)
+            Box(modifier = Modifier.background(HeaderGradient)) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            "Tu Resumen",
+                            fontWeight = FontWeight.ExtraBold,
+                            style = MaterialTheme.typography.titleLarge
                         )
-                    }
-                }
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+            }
+        }
     ) { padding ->
         Column(
             modifier = Modifier
-                .fillMaxSize()
                 .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Estadisticas de mantenimientos",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary
+            // Total + progress card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                elevation = CardDefaults.cardElevation(6.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .background(HeaderGradient)
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                "Total de mantenimientos",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
+                            )
+                            Text(
+                                "$total",
+                                style = MaterialTheme.typography.displaySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+
+                        // Anillo de progreso con el % de completado
+                        Box(modifier = Modifier.size(76.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(
+                                progress = { 1f },
+                                modifier = Modifier.fillMaxSize(),
+                                strokeWidth = 7.dp,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
+                                trackColor = Color.Transparent,
+                                strokeCap = StrokeCap.Round
+                            )
+                            CircularProgressIndicator(
+                                progress = { progreso },
+                                modifier = Modifier.fillMaxSize(),
+                                strokeWidth = 7.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                trackColor = Color.Transparent,
+                                strokeCap = StrokeCap.Round
+                            )
+                            Text(
+                                "${(progreso * 100).toInt()}%",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
+                    Text(
+                        "Tasa de completado",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
+                    )
+                }
+            }
+
+            // Stats grid
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                StatCard(
+                    modifier = Modifier.weight(1f),
+                    titulo = "Pendientes",
+                    valor = pendientes,
+                    color = StatusPendiente,
+                    icon = Icons.Default.Schedule
+                )
+                StatCard(
+                    modifier = Modifier.weight(1f),
+                    titulo = "Realizados",
+                    valor = realizados,
+                    color = StatusRealizado,
+                    icon = Icons.Default.CheckCircle
+                )
+            }
+
+            StatCard(
+                modifier = Modifier.fillMaxWidth(),
+                titulo = "Vencidos sin atender",
+                valor = vencidos,
+                color = StatusVencido,
+                icon = Icons.Default.Warning,
+                horizontal = true
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ResumenCard("Pendientes", contarPorEstado(mantenimientos, "Pendiente").toString(), Color(0xFFE3ECF8), Modifier.weight(1f))
-                ResumenCard("Realizados", contarPorEstado(mantenimientos, "Realizado").toString(), Color(0xFFDFF3E6), Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ResumenCard("Vencidos", contarPorEstado(mantenimientos, "Vencido").toString(), Color(0xFFFFE0E0), Modifier.weight(1f))
-                ResumenCard("Proximos 30 dias", contarProximos(mantenimientos).toString(), Color(0xFFFFF3D6), Modifier.weight(1f))
-            }
+            StatCard(
+                modifier = Modifier.fillMaxWidth(),
+                titulo = "Próximos 30 días",
+                valor = proximos,
+                color = MaterialTheme.colorScheme.tertiary,
+                icon = Icons.Default.CalendarMonth,
+                horizontal = true
+            )
 
+            if (total == 0) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Aún no hay mantenimientos registrados",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun ResumenCard(
+private fun StatCard(
+    modifier: Modifier = Modifier,
     titulo: String,
-    valor: String,
+    valor: Int,
     color: Color,
-    modifier: Modifier = Modifier
+    icon: ImageVector,
+    horizontal: Boolean = false
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = color)
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.85f)),
+        elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(text = titulo, style = MaterialTheme.typography.titleSmall)
-            Text(
-                text = valor,
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
+        if (horizontal) {
+            Row(
+                modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(color.copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(icon, null, tint = color, modifier = Modifier.size(26.dp))
+                    }
+                    Text(titulo, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+                }
+                Text(
+                    "$valor",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = color
+                )
+            }
+        } else {
+            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(color.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, null, tint = color, modifier = Modifier.size(24.dp))
+                }
+                Column {
+                    Text(
+                        "$valor",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = color
+                    )
+                    Text(
+                        titulo,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
         }
-    }
-}
-
-private fun contarPorEstado(mantenimientos: List<Mantenimiento>, estado: String): Int {
-    return mantenimientos.count { it.estado.equals(estado, ignoreCase = true) }
-}
-
-private fun contarProximos(mantenimientos: List<Mantenimiento>): Int {
-    val hoy = LocalDate.now()
-    val limite = hoy.plusDays(30)
-    return mantenimientos.count { mantenimiento ->
-        val fecha = runCatching { LocalDate.parse(mantenimiento.fechaProgramada) }.getOrNull()
-        fecha != null && !fecha.isBefore(hoy) && !fecha.isAfter(limite)
     }
 }

@@ -30,6 +30,10 @@ class VehiculoViewModel(
     private val _mensajeError = MutableStateFlow<String?>(null)
     val mensajeError: StateFlow<String?> = _mensajeError.asStateFlow()
 
+    init {
+        cargarVehiculos()
+    }
+
     fun cargarVehiculos() {
         viewModelScope.launch {
             _isLoading.value = true

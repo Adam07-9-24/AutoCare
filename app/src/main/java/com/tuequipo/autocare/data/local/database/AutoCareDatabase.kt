@@ -1,4 +1,3 @@
-// data/local/database/AutoCareDatabase.kt
 package com.tuequipo.autocare.data.local.database
 
 import android.content.Context
